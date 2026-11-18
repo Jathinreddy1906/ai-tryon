@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { signOut } from "@/app/auth/actions";
+import { signOut, updatePreferences, updateProfile } from "@/app/auth/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -13,6 +13,37 @@ export const metadata: Metadata = {
 type AccountPageProps = {
   searchParams: Promise<{ error?: string; notice?: string }>;
 };
+
+function PreferenceFields({
+  name,
+  title,
+  values,
+  options,
+}: {
+  name: string;
+  title: string;
+  values: string[];
+  options: string[];
+}) {
+  return (
+    <fieldset className="preference-fieldset">
+      <legend>{title}</legend>
+      <div className="preference-options">
+        {options.map((option) => (
+          <label key={option}>
+            <input
+              defaultChecked={values.includes(option)}
+              name={name}
+              type="checkbox"
+              value={option}
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 export default async function AccountPage({ searchParams }: AccountPageProps) {
   const { error, notice } = await searchParams;
@@ -34,9 +65,18 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const userId = claimsData?.claims?.sub;
   if (claimsError || typeof userId !== "string") redirect("/login");
 
-  const [{ data: profile, error: profileError }, { data: userData, error: userError }] =
+  const [
+    { data: profile, error: profileError },
+    { data: preferences, error: preferencesError },
+    { data: userData, error: userError },
+  ] =
     await Promise.all([
       supabase.from("profiles").select("full_name, created_at").eq("id", userId).maybeSingle(),
+      supabase
+        .from("user_preferences")
+        .select("preferred_styles, preferred_colors, preferred_categories")
+        .eq("user_id", userId)
+        .maybeSingle(),
       supabase.auth.getUser(),
     ]);
 
@@ -53,6 +93,11 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         )}
         {error === "sign-out" && <p className="auth-error" role="alert">We could not sign you out. Please try again.</p>}
         {notice === "password-updated" && <p className="auth-success" role="status">Your password has been updated.</p>}
+        {notice === "profile-updated" && <p className="auth-success" role="status">Your profile has been updated.</p>}
+        {notice === "preferences-updated" && <p className="auth-success" role="status">Your style preferences have been saved.</p>}
+        {error === "profile-invalid" && <p className="auth-error" role="alert">Enter a valid profile name.</p>}
+        {error === "profile-update" && <p className="auth-error" role="alert">Your profile could not be updated.</p>}
+        {error === "preferences-update" && <p className="auth-error" role="alert">Your style preferences could not be saved.</p>}
         <div className="account-status">
           <span>Account status</span><strong>Private profile</strong>
           <span>Saved looks</span><strong>Available in a later phase</strong>
@@ -65,6 +110,37 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <button className="button button-dark" type="submit">Sign out</button>
           </form>
         </div>
+        <form className="account-preferences" action={updateProfile}>
+          <h2>Profile details</h2>
+          <label>
+            Display name
+            <input name="name" maxLength={120} defaultValue={profile?.full_name ?? ""} />
+          </label>
+          <button className="button button-outline" type="submit">Save profile</button>
+        </form>
+        <form className="account-preferences" action={updatePreferences}>
+          <h2>Style preferences</h2>
+          {preferencesError && <p className="auth-error" role="alert">Apply the preferences migration to enable saved style settings.</p>}
+          <PreferenceFields
+            name="styles"
+            title="Preferred styles"
+            values={preferences?.preferred_styles ?? []}
+            options={["Minimal", "Classic", "Streetwear", "Romantic", "Sport"]}
+          />
+          <PreferenceFields
+            name="colors"
+            title="Preferred colors"
+            values={preferences?.preferred_colors ?? []}
+            options={["Black", "White", "Beige", "Blue", "Green", "Red"]}
+          />
+          <PreferenceFields
+            name="categories"
+            title="Preferred categories"
+            values={preferences?.preferred_categories ?? []}
+            options={["Tops", "Dresses", "Outerwear", "Bottoms", "Accessories"]}
+          />
+          <button className="button button-outline" type="submit">Save preferences</button>
+        </form>
       </section>
     </div>
   );

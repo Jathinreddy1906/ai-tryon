@@ -396,6 +396,15 @@ h1 em, h2 em { color: var(--olive); font-weight: 400; }
 .account-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 23px; }
 .account-actions form { flex: 1; }
 .account-actions .button { width: 100%; }
+.account-preferences { display: grid; gap: 12px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
+.account-preferences h2 { margin: 0 0 2px; font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 400; }
+.account-preferences label { display: grid; gap: 7px; color: var(--ink); font-size: 10px; }
+.account-preferences input[type="text"], .account-preferences input:not([type]) { min-height: 42px; padding: 0 11px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 11px; }
+.preference-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.preference-fieldset legend { margin-bottom: 8px; color: var(--ink-soft); font-size: 9px; }
+.preference-options { display: flex; flex-wrap: wrap; gap: 7px; }
+.preference-options label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 9px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; }
+.preference-options input { accent-color: var(--olive); }
 .account-photo-card { width: min(100%, 680px); }
 .account-photo-back { margin-bottom: 25px; }
 .person-photo-manager { display: grid; justify-items: start; gap: 15px; }

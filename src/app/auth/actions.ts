@@ -114,3 +114,51 @@ export async function signOut() {
 
   redirect("/");
 }
+
+export async function updateProfile(formData: FormData) {
+  const parsed = z.object({
+    name: z.string().trim().max(120),
+  }).safeParse({ name: formData.get("name") });
+  if (!parsed.success) redirect("/account?error=profile-invalid");
+  if (!isSupabaseConfigured()) redirect("/login?error=setup");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  if (claimsError || typeof claimsData?.claims?.sub !== "string") redirect("/login");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ full_name: parsed.data.name || null })
+    .eq("id", claimsData.claims.sub);
+  if (error) redirect("/account?error=profile-update");
+
+  redirect("/account?notice=profile-updated");
+}
+
+export async function updatePreferences(formData: FormData) {
+  if (!isSupabaseConfigured()) redirect("/login?error=setup");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  if (claimsError || typeof claimsData?.claims?.sub !== "string") redirect("/login");
+
+  const cleanValues = (field: string) =>
+    formData
+      .getAll(field)
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+  const { error } = await supabase
+    .from("user_preferences")
+    .upsert({
+      user_id: claimsData.claims.sub,
+      preferred_styles: cleanValues("styles"),
+      preferred_colors: cleanValues("colors"),
+      preferred_categories: cleanValues("categories"),
+    }, { onConflict: "user_id" });
+  if (error) redirect("/account?error=preferences-update");
+
+  redirect("/account?notice=preferences-updated");
+}
