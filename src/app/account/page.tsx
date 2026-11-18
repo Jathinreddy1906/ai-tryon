@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut, updatePreferences, updateProfile } from "@/app/auth/actions";
+import { removeProductFavorite } from "@/app/favorites/actions";
+import { getCatalogData } from "@/lib/catalog.server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -68,6 +70,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const [
     { data: profile, error: profileError },
     { data: preferences, error: preferencesError },
+    { data: favorites, error: favoritesError },
     { data: userData, error: userError },
   ] =
     await Promise.all([
@@ -77,8 +80,23 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         .select("preferred_styles, preferred_colors, preferred_categories")
         .eq("user_id", userId)
         .maybeSingle(),
+      supabase
+        .from("user_favorites")
+        .select("product_id, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
       supabase.auth.getUser(),
     ]);
+  if (favoritesError) console.error("Could not load saved TRYVORA products.", favoritesError);
+  const catalog = favoritesError ? null : await getCatalogData();
+  const favoriteIds = new Set((favorites ?? []).map((favorite) => favorite.product_id));
+  const savedProducts =
+    catalog && catalog.mode !== "error"
+      ? catalog.products.filter(
+          (product): product is typeof product & { id: string } =>
+            Boolean(product.id && favoriteIds.has(product.id)),
+        )
+      : [];
 
   return (
     <div className="account-page">
@@ -95,12 +113,14 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         {notice === "password-updated" && <p className="auth-success" role="status">Your password has been updated.</p>}
         {notice === "profile-updated" && <p className="auth-success" role="status">Your profile has been updated.</p>}
         {notice === "preferences-updated" && <p className="auth-success" role="status">Your style preferences have been saved.</p>}
+        {notice === "favorite-removed" && <p className="auth-success" role="status">Removed from your favorites.</p>}
         {error === "profile-invalid" && <p className="auth-error" role="alert">Enter a valid profile name.</p>}
         {error === "profile-update" && <p className="auth-error" role="alert">Your profile could not be updated.</p>}
         {error === "preferences-update" && <p className="auth-error" role="alert">Your style preferences could not be saved.</p>}
+        {error === "favorite-remove" && <p className="auth-error" role="alert">The favorite could not be removed. Please try again.</p>}
         <div className="account-status">
           <span>Account status</span><strong>Private profile</strong>
-          <span>Saved looks</span><strong>Available in a later phase</strong>
+          <span>Saved products</span><strong>{favoritesError ? "Unavailable" : `${favorites?.length ?? 0} favorites`}</strong>
           <span>Try-on</span><strong>Unavailable until a real model is configured</strong>
         </div>
         <div className="account-actions">
@@ -110,6 +130,32 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <button className="button button-dark" type="submit">Sign out</button>
           </form>
         </div>
+        <section className="account-preferences">
+          <h2>Saved pieces</h2>
+          {favoritesError ? (
+            <p className="auth-error" role="alert">Apply the saved-products migration to use favorites.</p>
+          ) : catalog?.mode === "error" ? (
+            <p className="auth-error" role="alert">{catalog.message}</p>
+          ) : savedProducts.length ? (
+            <ul className="saved-product-list">
+              {savedProducts.map((product) => (
+                <li key={product.id}>
+                  <Link href={`/products/${product.slug}`}>
+                    <strong>{product.name}</strong>
+                    <span>{product.brand} · {product.category}</span>
+                  </Link>
+                  <form action={removeProductFavorite}>
+                    <input name="productId" type="hidden" value={product.id} />
+                    <input name="source" type="hidden" value="account" />
+                    <button className="button button-outline" type="submit">Remove</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="account-empty">Your saved pieces will appear here. Explore the catalogue and save a favorite.</p>
+          )}
+        </section>
         <form className="account-preferences" action={updateProfile}>
           <h2>Profile details</h2>
           <label>

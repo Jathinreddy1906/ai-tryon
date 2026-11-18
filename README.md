@@ -15,10 +15,11 @@ TRYVORA is a fashion discovery and virtual try-on product in development. It cur
 - Supabase SSR authentication foundation: password sign-in and signup, optional Google sign-in, email verification callback, password reset/update, protected account page, and sign-out.
 - Private personal-photo management for signed-in accounts: JPG/PNG/WebP validation, crop/rotate controls, normalized JPEG processing, upload progress, replacement, deletion, and short-lived signed previews.
 - Supabase migrations for owner-scoped profiles/preferences, public read-only access to active categories and published products, and private personal-photo storage.
+- Owner-scoped saved product favorites with row-level security and an account list.
 - Optional SQL seed script for illustrative sample products, clearly marked as samples.
 - Focused unit tests for catalogue search, filtering, and sorting.
 
-Apply the migrations before using the live catalogue, account, or photo data. The AI Studio stays unavailable; photo storage does not enable image generation. Pose/body-suitability checks, persistent favourites, FastAPI, and production contact-message delivery are not implemented.
+Apply the migrations before using the live catalogue, account, favorites, or photo data. The AI Studio stays unavailable; photo storage does not enable image generation. Saved outfits, try-on history, pose/body-suitability checks, FastAPI, and production contact-message delivery are not implemented.
 
 ## Technology
 
@@ -51,7 +52,7 @@ Use the Supabase project's publishable key (or legacy anon key), never a `servic
 ### Supabase setup
 
 1. Create a Supabase project and copy its project URL and publishable key into `.env.local`.
-2. On a new project, apply [`supabase/migrations/20261118000100_profiles_and_preferences.sql`](./supabase/migrations/20261118000100_profiles_and_preferences.sql), [`supabase/migrations/20261118000200_fashion_catalogue.sql`](./supabase/migrations/20261118000200_fashion_catalogue.sql), and [`supabase/migrations/20261118000300_person_photo_storage.sql`](./supabase/migrations/20261118000300_person_photo_storage.sql) in order in the Supabase SQL Editor. If the profile and catalogue migrations are already applied, apply only the photo migration.
+2. On a new project, apply migrations [`20261118000100_profiles_and_preferences.sql`](./supabase/migrations/20261118000100_profiles_and_preferences.sql), [`20261118000200_fashion_catalogue.sql`](./supabase/migrations/20261118000200_fashion_catalogue.sql), [`20261118000300_person_photo_storage.sql`](./supabase/migrations/20261118000300_person_photo_storage.sql), and [`20261118000400_user_favorites.sql`](./supabase/migrations/20261118000400_user_favorites.sql) in order in the Supabase SQL Editor. For an existing installation, apply any migrations that have not yet been applied.
 3. To enable photo management, set `SUPABASE_SERVICE_ROLE_KEY` in the server's `.env.local` using the Supabase project's service role key. Keep it server-only: never add the `NEXT_PUBLIC_` prefix, expose it to browser code, or commit it. The photo feature remains unavailable until both the private bucket migration and this key are configured.
 4. Optionally run [`supabase/seed.sql`](./supabase/seed.sql) to load clearly labelled illustrative categories and sample products.
 5. In **Authentication → URL Configuration**, set the local Site URL to `http://localhost:3000` and add `http://localhost:3000/auth/callback` to the allowed redirect URLs. For deployment, set `NEXT_PUBLIC_SITE_URL` to the deployed origin and add its `/auth/callback` URL as well.

@@ -30,7 +30,7 @@ export async function getCatalogData(): Promise<CatalogData> {
     supabase
       .from("products")
       .select(
-        "slug, name, brand, description, category_id, image_url, image_alt, colors, available_sizes, price_cents, currency_code, tags, label, is_sample",
+        "id, slug, name, brand, description, category_id, image_url, image_alt, colors, available_sizes, price_cents, currency_code, tags, label, is_sample",
       )
       .eq("publication_status", "published")
       .order("sort_order")
@@ -69,6 +69,7 @@ export async function getCatalogData(): Promise<CatalogData> {
     }
 
     return {
+      id: product.id,
       slug: product.slug,
       name: product.name,
       brand: product.brand,
