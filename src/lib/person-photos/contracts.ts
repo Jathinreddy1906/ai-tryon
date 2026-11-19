@@ -27,3 +27,30 @@ export const poseReadinessResponseSchema = z.object({
 });
 
 export type PoseReadinessResponse = z.infer<typeof poseReadinessResponseSchema>;
+
+export const tryOnStatusSchema = z.enum([
+  "starting",
+  "in_queue",
+  "processing",
+  "completed",
+  "failed",
+  "expired",
+]);
+
+export const tryOnStartRequestSchema = z.object({
+  productSlug: z.string().min(1).max(120),
+  adultAttestation: z.literal(true),
+  ownPhotoAttestation: z.literal(true),
+  fashnProcessingConsent: z.literal(true),
+});
+
+export const tryOnStartResponseSchema = z.object({
+  jobId: z.string().uuid(),
+  status: tryOnStatusSchema,
+});
+
+export const tryOnStatusResponseSchema = z.object({
+  status: tryOnStatusSchema,
+  outputImage: z.string().regex(/^data:image\/(?:jpeg|png);base64,/).optional(),
+  error: z.string().optional(),
+});

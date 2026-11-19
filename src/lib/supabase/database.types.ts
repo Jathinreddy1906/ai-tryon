@@ -122,6 +122,7 @@ export type Database = {
           label: string;
           publication_status: "draft" | "published" | "archived";
           is_sample: boolean;
+          try_on_eligible: boolean;
           sort_order: number;
           created_at: string;
           updated_at: string;
@@ -143,6 +144,7 @@ export type Database = {
           label?: string;
           publication_status?: "draft" | "published" | "archived";
           is_sample?: boolean;
+          try_on_eligible?: boolean;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -164,6 +166,7 @@ export type Database = {
           label?: string;
           publication_status?: "draft" | "published" | "archived";
           is_sample?: boolean;
+          try_on_eligible?: boolean;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -214,9 +217,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      try_on_jobs: {
+        Row: {
+          id: string;
+          user_id: string;
+          product_slug: string;
+          provider_prediction_id: string | null;
+          status: "starting" | "in_queue" | "processing" | "completed" | "failed" | "expired";
+          consent_version: string;
+          consented_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          product_slug: string;
+          provider_prediction_id?: string | null;
+          status?: "starting" | "in_queue" | "processing" | "completed" | "failed" | "expired";
+          consent_version: string;
+          consented_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          product_slug?: string;
+          provider_prediction_id?: string | null;
+          status?: "starting" | "in_queue" | "processing" | "completed" | "failed" | "expired";
+          consent_version?: string;
+          consented_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      create_try_on_job: {
+        Args: {
+          p_user_id: string;
+          p_product_slug: string;
+          p_consent_version: string;
+        };
+        Returns: string;
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

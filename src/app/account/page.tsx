@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
+import { isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -33,6 +34,10 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
   if (claimsError || typeof userId !== "string") redirect("/login");
+  const tryOnEnabled =
+    process.env.TRYVORA_AI_TRYON_ENABLED === "true" &&
+    Boolean(process.env.FASHN_API_KEY?.trim()) &&
+    isSupabaseAdminConfigured();
 
   const [{ data: profile, error: profileError }, { data: userData, error: userError }] =
     await Promise.all([
@@ -56,7 +61,12 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         <div className="account-status">
           <span>Account status</span><strong>Private profile</strong>
           <span>Saved looks</span><strong>Available in a later phase</strong>
-          <span>Try-on</span><strong>Unavailable until a real model is configured</strong>
+          <span>Try-on</span>
+          <strong>
+            {tryOnEnabled
+              ? "Available for live items with your consent"
+              : "Unavailable until configured"}
+          </strong>
         </div>
         <div className="account-actions">
           <Link className="button button-outline" href="/explore">Explore the edit</Link>

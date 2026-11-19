@@ -19,6 +19,7 @@ export type CatalogProduct = {
   label: string;
   tags: string[];
   isSample: boolean;
+  tryOnEligible?: boolean;
 };
 
 export type CatalogData =

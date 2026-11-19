@@ -92,7 +92,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <Link className="button button-dark detail-tryon" href={`/try-on?product=${product.slug}`}>
             <Sparkles size={16} /> Explore in the AI studio <ArrowUpRight size={16} />
           </Link>
-          <p className="detail-note"><Check size={14} /> AI try-on is currently unavailable in this preview. No generated result will be shown.</p>
+          <p className="detail-note"><Check size={14} /> AI try-on requires a live catalogue item, a signed-in adult, and explicit consent. Preview results are not fit guarantees.</p>
           <p className="detail-footnote">
             {product.isSample ? "Illustrative sample listing" : "Catalogue listing"} · Not available for purchase
           </p>

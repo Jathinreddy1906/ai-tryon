@@ -15,17 +15,19 @@ TRYVORA is a fashion discovery and virtual try-on product in development. It cur
 - Supabase SSR authentication foundation: password sign-in and signup, optional Google sign-in, email verification callback, password reset/update, protected account page, and sign-out.
 - Private personal-photo management for signed-in accounts: JPG/PNG/WebP validation, crop/rotate controls, normalized JPEG processing, upload progress, replacement, deletion, and short-lived signed previews.
 - Optional FastAPI/MediaPipe pose-readiness service foundation. It performs non-generative pose suitability checks only and is never a fabricated try-on result.
-- Supabase migrations for owner-scoped profiles/preferences, public read-only access to active categories and published products, and private personal-photo storage.
+- Gated hosted AI try-on integration with FASHN Virtual Try-On v1.6: server-only provider credentials, adult/own-photo/third-party-processing attestations, live non-sample garment checks, per-user request limits, status polling, and ephemeral results.
+- Supabase migrations for owner-scoped profiles/preferences, public read-only access to active categories and published products, private personal-photo storage, and owner-restricted try-on job/consent records.
 - Optional SQL seed script for illustrative sample products, clearly marked as samples.
 - Focused unit tests for catalogue search, filtering, and sorting.
 
-Apply the migrations before using the live catalogue, account, or photo data. The AI Studio stays unavailable; photo storage does not enable image generation. Pose/body-suitability checks require the separately configured FastAPI/MediaPipe service. Persistent favourites and production contact-message delivery are not implemented.
+Apply the migrations before using the live catalogue, account, photo, or try-on job data. Try-on remains disabled unless explicitly enabled and all service requirements are configured. Pose/body-suitability checks require the separately configured FastAPI/MediaPipe service. Persistent favourites and production contact-message delivery are not implemented.
 
 ## Technology
 
 - Next.js App Router, React, TypeScript
 - Tailwind CSS v4 and shadcn/ui (base-nova)
 - Supabase Auth, PostgreSQL, and SSR helpers
+- Python FastAPI and MediaPipe for optional pose readiness; FASHN API for gated hosted inference
 - Lucide React, Framer Motion, React Hook Form, and Zod
 - Vitest for focused unit tests
 
@@ -52,7 +54,7 @@ Use the Supabase project's publishable key (or legacy anon key), never a `servic
 ### Supabase setup
 
 1. Create a Supabase project and copy its project URL and publishable key into `.env.local`.
-2. On a new project, apply [`supabase/migrations/20261118000100_profiles_and_preferences.sql`](./supabase/migrations/20261118000100_profiles_and_preferences.sql), [`supabase/migrations/20261118000200_fashion_catalogue.sql`](./supabase/migrations/20261118000200_fashion_catalogue.sql), and [`supabase/migrations/20261118000300_person_photo_storage.sql`](./supabase/migrations/20261118000300_person_photo_storage.sql) in order in the Supabase SQL Editor. If the profile and catalogue migrations are already applied, apply only the photo migration.
+2. On a new project, apply [`supabase/migrations/20261118000100_profiles_and_preferences.sql`](./supabase/migrations/20261118000100_profiles_and_preferences.sql), [`supabase/migrations/20261118000200_fashion_catalogue.sql`](./supabase/migrations/20261118000200_fashion_catalogue.sql), [`supabase/migrations/20261118000300_person_photo_storage.sql`](./supabase/migrations/20261118000300_person_photo_storage.sql), [`supabase/migrations/20261119000400_try_on_jobs.sql`](./supabase/migrations/20261119000400_try_on_jobs.sql), and [`supabase/migrations/20261119000500_product_try_on_eligibility.sql`](./supabase/migrations/20261119000500_product_try_on_eligibility.sql) in order in the Supabase SQL Editor. If earlier migrations are already applied, apply only the remaining migrations.
 3. To enable photo management, set `SUPABASE_SERVICE_ROLE_KEY` in the server's `.env.local` using the Supabase project's service role key. Keep it server-only: never add the `NEXT_PUBLIC_` prefix, expose it to browser code, or commit it. The photo feature remains unavailable until both the private bucket migration and this key are configured.
 4. Optionally run [`supabase/seed.sql`](./supabase/seed.sql) to load clearly labelled illustrative categories and sample products.
 5. In **Authentication → URL Configuration**, set the local Site URL to `http://localhost:3000` and add `http://localhost:3000/auth/callback` to the allowed redirect URLs. For deployment, set `NEXT_PUBLIC_SITE_URL` to the deployed origin and add its `/auth/callback` URL as well.
@@ -61,6 +63,24 @@ Use the Supabase project's publishable key (or legacy anon key), never a `servic
 8. Restart the Next.js server after changing `.env.local`.
 
 Photo management stores one private image per account. Uploads accept JPG, PNG, and WebP files up to 10 MB and 8192 pixels per side; the server verifies and converts them to metadata-stripped JPEGs no larger than 2048 pixels per side. Signed preview URLs expire after 10 minutes and refresh while the photo page is open. Users can replace or delete their photo from `/account/photos`. Pose suitability can be checked using the separate Phase 6 service; photo storage and pose checks do not run try-on inference. Photos are not used to train models.
+
+### Hosted AI try-on (Phase 7)
+
+The AI Studio uses FASHN Virtual Try-On v1.6, the provider's stable, lower-cost endpoint (one output credit per request; the integration uses performance mode and one JPEG output). It only accepts a published, non-sample catalogue product whose `try_on_eligible` flag has been explicitly set after confirming image rights, and the user's own private photo. FASHN credentials are server-only. Add `FASHN_API_KEY` and set `TRYVORA_AI_TRYON_ENABLED=true` only after configuring the migrations, photo storage, provider account/credits, and deployment settings. With the default `false` flag or no key, generation is unavailable and no image is sent externally.
+
+Each generation requires the user to attest that they are at least 18, that the image is their own and they consent to its use, and that they consent to FASHN processing. The app sends the personal photo as base64 (so its private URL is not included in FASHN request history) and sends the selected public catalogue image URL. Results are returned as base64, held only in page memory, and not saved to TRYVORA storage. FASHN documents that request records (which may include the public garment URL and request parameters) are not automatically deleted, input processing copies have a one-day cleanup backstop, and base64 outputs expire after 60 minutes. Processing may involve its listed subprocessors in the US, EU, and global regions, including Southeast Asia. FASHN states that customer content is not used to train models unless separately opted in. Review the current [retention documentation](https://docs.fashn.ai/api-overview/data-retention-privacy), [subprocessor list](https://fashn.ai/legal/subprocessors), [DPA](https://fashn.ai/legal/dpa), and [terms](https://fashn.ai/legal/terms-of-service) before enabling the feature.
+
+The backend permits one active job and a maximum of three requests per user in any 24-hour period. Results are explicitly estimates, not fit/size guarantees. User photo deletion does not delete provider request records; provider deletion requests must follow FASHN's documented process.
+
+Products are not try-on eligible by default. After confirming that TRYVORA has the rights to submit a specific product image to FASHN, an administrator can enable an eligible published item:
+
+```sql
+update public.products
+set try_on_eligible = true
+where slug = '<approved-product-slug>'
+  and publication_status = 'published'
+  and is_sample = false;
+```
 
 ### Pose-preparation service
 
@@ -92,4 +112,4 @@ The visual preview references images hosted by Unsplash at `images.unsplash.com`
 
 ## Planned architecture
 
-The approved foundation is a Vercel-hosted Next.js app, a separately deployed FastAPI API and persistent worker, Supabase Auth/PostgreSQL/Storage, and a dedicated GPU inference service. The model and its license, exact preprocessing requirements, weights, and hardware needs must be verified before an adapter is selected or generation is enabled. Deployment is not claimed complete.
+The current architecture uses a Vercel-hosted Next.js app, Supabase Auth/PostgreSQL/Storage, an optional separate FastAPI pose service, and a gated FASHN hosted inference API. Generation is disabled by default; deployment is not claimed complete. Before enabling for end users, configure and test migrations, account billing, secrets, product-image rights, data-protection obligations, provider terms, and output quality. Do not claim that generated previews guarantee fit or size.
