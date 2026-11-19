@@ -19,6 +19,9 @@
 
 # production
 /build
+/python/pose-service/models/
+/python/pose-service/**/__pycache__/
+/python/pose-service/.pytest_cache/
 
 # misc
 .DS_Store

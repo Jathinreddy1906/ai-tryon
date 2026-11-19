@@ -5,7 +5,9 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   personPhotoResponseSchema,
+  poseReadinessResponseSchema,
   type PersonPhoto,
+  type PoseReadinessResponse,
 } from "@/lib/person-photos/contracts";
 import {
   preparePhotoForUpload,
@@ -26,6 +28,8 @@ export function PersonPhotoManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [poseReadiness, setPoseReadiness] = useState<PoseReadinessResponse | null>(null);
+  const [checkingPose, setCheckingPose] = useState(false);
 
   const refreshPhoto = useCallback(async () => {
     try {
@@ -166,6 +170,41 @@ export function PersonPhotoManager() {
     }
   }
 
+  async function checkPoseReadiness() {
+    if (!photo || checkingPose) return;
+
+    setError("");
+    setNotice("");
+    setCheckingPose(true);
+    try {
+      const response = await fetch("/api/pose/readiness", {
+        method: "POST",
+      });
+      const payload = await response.json();
+      const parsed = poseReadinessResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Pose readiness could not be checked.",
+        );
+      }
+      setPoseReadiness(parsed.data);
+      if (parsed.data.status === "ready") {
+        setNotice("Your pose appears suitable for future pose preprocessing.");
+      }
+    } catch (poseError) {
+      setPoseReadiness(null);
+      setError(
+        poseError instanceof Error
+          ? poseError.message
+          : "Pose readiness could not be checked.",
+      );
+    } finally {
+      setCheckingPose(false);
+    }
+  }
+
   const previewSource = previewUrl ?? (!selectedFile ? photo?.signedUrl : null);
 
   return (
@@ -281,14 +320,44 @@ export function PersonPhotoManager() {
         </div>
       )}
       {photo && !selectedFile && (
-        <button
-          className="text-button photo-delete-button"
-          disabled={busy}
-          onClick={() => void deletePhoto()}
-          type="button"
+        <div className="photo-action-row">
+          <button
+            className="button button-outline"
+            disabled={busy || checkingPose}
+            onClick={() => void checkPoseReadiness()}
+            type="button"
+          >
+            {checkingPose ? "Checking pose…" : "Check pose readiness"}
+          </button>
+          <button
+            className="text-button photo-delete-button"
+            disabled={busy}
+            onClick={() => void deletePhoto()}
+            type="button"
+          >
+            <Trash2 size={14} /> Delete photo
+          </button>
+        </div>
+      )}
+      {poseReadiness && (
+        <div
+          className={`pose-readiness pose-readiness-${poseReadiness.status}`}
+          role="status"
         >
-          <Trash2 size={14} /> Delete photo
-        </button>
+          <strong>
+            {poseReadiness.status === "ready"
+              ? "Pose appears ready"
+              : poseReadiness.status === "not_ready"
+                ? "Pose needs adjustment"
+                : "Pose service unavailable"}
+          </strong>
+          <span>{Math.round(poseReadiness.confidence * 100)}% landmark confidence</span>
+          <ul>
+            {poseReadiness.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="photo-guidelines">
@@ -298,9 +367,9 @@ export function PersonPhotoManager() {
           <li>Choose even lighting and avoid obstructed clothing or extreme camera angles.</li>
         </ul>
         <p>
-          This phase checks file integrity, format, size, and dimensions; it does not assess pose or
-          body visibility. Your photo is private, access uses short-lived signed URLs, and it is not
-          used to train models.
+          This page checks file integrity and dimensions and can request a separate pose-readiness
+          assessment. It does not run AI try-on inference. Your photo is private, access uses
+          short-lived signed URLs, and it is not used to train models.
         </p>
       </div>
     </div>
